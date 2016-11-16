@@ -217,14 +217,14 @@ def setrange():
 def getbusy():
     global formdateend, formdatestart
     
-    starttime = request.form["startTime"]         #get auth credentials, form data
-    endtime = request.form["endTime"]
+    starthour = request.form["startTime"]         #get auth credentials, form data
+    endhour = request.form["endTime"]
     sel = request.form.getlist("calendarselect")
     cred = valid_credentials()
     gcal = get_gcal_service(cred)
     
-    starttime = arrow.get(formdatestart).replace(hour=int(starttime))   #sets up the hour range
-    endtime = arrow.get(formdateend).replace(hour=int(endtime))
+    starttime = arrow.get(formdatestart).replace(hour=int(starthour))   #sets up the hour range
+    endtime = arrow.get(formdateend).replace(hour=int(endhour))
     
     grabbeddates = list_busy_times(gcal, endtime.isoformat(), starttime.isoformat(), sel) #gets calendar busy times
     
@@ -237,6 +237,43 @@ def getbusy():
         place +=2                                                           #indexing so we combine item 0/1, 2/3, 4/5, 6/7....
         i+= 2
     
+    
+    freetime = []
+    daydex = []
+    i = 0
+    mainday = starttime.day                             #function to grab the free times between the start and end times
+    inday = []
+    for item in sorted(grabbeddates, key = str.lower):  #current status: non-functional
+        if arrow.get(item).day == mainday:
+            inday.append(item)
+        else:
+            mainday = arrow.get(item).day
+            daydex.append(inday)
+            inday = []
+            inday.append(item)
+
+    daydex.append(inday)
+    for item in daydex:
+        print("INDAY'S ITEM")
+        print(item)
+    print(daydex)
+
+    for item in inday:                                                 #to fix: arrow for some reason gets a weird index here, refine the loop so the indexing is always proper. and then combine crossover dates into one big list
+        starttime = starttime.replace(day=(arrow.get(item[0]).day))
+        endtime = endtime.replace(day=(arrow.get(item[0]).day))
+        i = 0
+        while i < len(item)-1:
+            print("check")
+            if item[i] == item[-1]:              #if we're looking at the last date
+                cleaned = "From" + str(arrow.get(item[i])) + " to " + str(endtime)
+            else:
+                cleaned = "From" + str(starttime) + " to " + str(arrow.get(item[i]))
+                starttime = arrow.get(item[i+1])
+                i += 2
+            freetime.append(cleaned)
+
+
+
     
     flask.g.busy = sorted(cleantime, key=str.lower)  #defines flask.g.busy, sorts it. jinja2 formats this
     return render_template("index.html")
@@ -377,7 +414,9 @@ def list_busy_times(service, max, min, selected):
         for item in parse:
             busy_range.append(arrow.get(item["start"]).to('local').isoformat())  #sets the timezone
             busy_range.append(arrow.get(item["end"]).to('local').isoformat())
-    
+
+
+
 
     return (busy_range)
 
