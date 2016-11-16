@@ -258,11 +258,11 @@ def getbusy():
         print(item)
     print(daydex)
 
-    for item in daydex:                                                 #to fix: arrow for some reason gets a weird index here, refine the loop so the indexing is always proper. and then combine crossover dates into one big list
+    for item in daydex:
         starttime = starttime.replace(day=(arrow.get(item[0]).day))
         endtime = endtime.replace(day=(arrow.get(item[0]).day))
         i = 0
-        while i < len(item)-1:
+        while i < len(item):
             print("check")
             if item[i] == item[-1]:              #if we're looking at the last date
                 cleaned = "From" + str(arrow.get(item[i])) + " to " + str(endtime)
@@ -275,7 +275,7 @@ def getbusy():
 
 
     
-    flask.g.busy = sorted(cleantime, key=str.lower)  #defines flask.g.busy, sorts it. jinja2 formats this
+    flask.g.busy = sorted(freetime, key=str.lower)  #defines flask.g.busy, sorts it. jinja2 formats this
     return render_template("index.html")
 
 ####
