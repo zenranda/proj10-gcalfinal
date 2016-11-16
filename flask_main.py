@@ -258,7 +258,7 @@ def getbusy():
         print(item)
     print(daydex)
 
-    for item in inday:                                                 #to fix: arrow for some reason gets a weird index here, refine the loop so the indexing is always proper. and then combine crossover dates into one big list
+    for item in daydex:                                                 #to fix: arrow for some reason gets a weird index here, refine the loop so the indexing is always proper. and then combine crossover dates into one big list
         starttime = starttime.replace(day=(arrow.get(item[0]).day))
         endtime = endtime.replace(day=(arrow.get(item[0]).day))
         i = 0
