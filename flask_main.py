@@ -277,7 +277,7 @@ def getbusy():
         print(item)
     print(daydex)
 
-for item in daydex:                                             #overall,good. one issue: the last time range is kept even if it goes over. EX: if we look at times from 12 to 22 and the last event of the day is from 21 to 23, it thinks from 21 to 22 is a valid time, when it's not. this can be fixed by a simple check at the appending stage. can it?
+    for item in daydex:                                             #overall,good. one issue: the last time range is kept even if it goes over. EX: if we look at times from 12 to 22 and the last event of the day is from 21 to 23, it thinks from 21 to 22 is a valid time, when it's not. this can be fixed by a simple check at the appending stage. can it?
         started = starttime.replace(day=(arrow.get(item[0]).day))
         ended = endtime.replace(day=(arrow.get(item[0]).day))
         i = 0
