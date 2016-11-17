@@ -228,6 +228,10 @@ def getbusy():
     
     grabbeddates = list_busy_times(gcal, endtime.isoformat(), starttime.isoformat(), sel) #gets calendar busy times
     
+    print("grabbed dates are" )
+    print(grabbeddates)
+    
+    
     cleantime = []
     place = 1
     i = 0
@@ -245,12 +249,27 @@ def getbusy():
     inday = []
     for item in sorted(grabbeddates, key = str.lower):  #current status: non-functional
         if arrow.get(item).day == mainday:
-            inday.append(item)
+            if endtime.hour >= arrow.get(item).hour >= starttime.hour: #add logic; if hour is the same but minutes are more than, truncate downward and just make its minutes equal to the opening time's minutes. if the minutes underflow, just keep em. do the same for starting minutes too; a 12:30 starting time currently includes events that crossover into 12:00
+                if endtime.hour == arrow.get(item).hour:
+                    if endtime.minute <= arrow.get(item).minute:
+                        item = arrow.get(item).replace(minute=endtime.minute).isoformat()
+                if starttime.hour == arrow.get(item).hour:
+                    if starttime.minute >= arrow.get(item).minute:
+                        item = arrow.get(item).replace(minte=starttime.minute).isoformat()
+                
+                inday.append(item)
         else:
             mainday = arrow.get(item).day
             daydex.append(inday)
             inday = []
-            inday.append(item)
+            if endtime.hour >= arrow.get(item).hour >= starttime.hour:
+                if endtime.hour == arrow.get(item).hour:
+                    if endtime.minute <= arrow.get(item).minute:
+                        item = arrow.get(item).replace(minute=endtime.minute).isoformat()
+                if starttime.hour == arrow.get(item).hour:
+                    if starttime.minute >= arrow.get(item).minute:
+                        item = arrow.get(item).replace(minte=starttime.minute).isoformat()
+                inday.append(item)
 
     daydex.append(inday)
     for item in daydex:
@@ -258,19 +277,22 @@ def getbusy():
         print(item)
     print(daydex)
 
-    for item in daydex:
-        starttime = starttime.replace(day=(arrow.get(item[0]).day))
-        endtime = endtime.replace(day=(arrow.get(item[0]).day))
+for item in daydex:                                             #overall,good. one issue: the last time range is kept even if it goes over. EX: if we look at times from 12 to 22 and the last event of the day is from 21 to 23, it thinks from 21 to 22 is a valid time, when it's not. this can be fixed by a simple check at the appending stage. can it?
+        started = starttime.replace(day=(arrow.get(item[0]).day))
+        ended = endtime.replace(day=(arrow.get(item[0]).day))
         i = 0
+        x = 1
         while i < len(item):
             print("check")
-            if item[i] == item[-1]:              #if we're looking at the last date
-                cleaned = "From" + str(arrow.get(item[i])) + " to " + str(endtime)
-            else:
-                cleaned = "From" + str(starttime) + " to " + str(arrow.get(item[i]))
-                starttime = arrow.get(item[i+1])
-                i += 2
+            cleaned = "From " + str(started) + " to " + str(arrow.get(item[i]))
             freetime.append(cleaned)
+            i += 2
+            if i < len(item):
+                started = arrow.get(item[x]);
+                x +=2
+        cleaned= "From " + str(arrow.get(item[-1])) + " to " + str(ended)
+        freetime.append(cleaned)
+
 
 
 
@@ -397,7 +419,10 @@ def list_busy_times(service, max, min, selected):
     busyrange = service.freebusy()    
           
     querymain =  {"timeMax" : max, "items" : [], "timeMin" : min } #query on no calendars, to be filled later
-    grbody = []                                                 
+    grbody = []                                                    #oh shoot I know what the problem is; max and min are datetime ranges, not merely time ranges! So we're capturing everything from the day 1 to day n, not just the hour range between day 1 and n for each day. god i'm gonna have to rewrite this function aren't i. wait wait wait, this is actually what we want, because we query each calendar in the range. we want to look through the each calendar in the same range. the issue is the TIME.
+    
+        #new soln: shave off the hours from the list manually up above when getting each day's blocking events.
+        
     
     callist = list_calendars(service)
     for item in callist:
@@ -418,7 +443,7 @@ def list_busy_times(service, max, min, selected):
 
 
 
-    return (busy_range)
+        return (busy_range)
 
           
 
