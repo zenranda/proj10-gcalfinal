@@ -262,11 +262,18 @@ def getbusy():
     
     freelist = []
 
-    for item in daydex:
+    for item in daydex:                     #weird logic, but it works. one issue: we can get start/end ranges that start and end at the same time. todo: generate the free ranges, then delete them if there's no differernce between them. Even better, if I want to be slick I can implement the date clipping that's in extra credit as part of this function, with a base date of 0!
+        
+        #anyway, list all the ranges between these things. done.
+        print("looking through days...")
         started = starttime.replace(day=arrow.get(item[0]).day)
         ended = endtime.replace(day=arrow.get(item[0]).day)
         item.insert(0, started.isoformat())
         item.append(ended.isoformat())
+        chompeddates = set(item)
+
+        print(item)
+
 
 
     
@@ -419,7 +426,6 @@ def list_busy_times(service, max, min, selected):
                 busy_range.append(arrow.get(item["end"]).to('local').isoformat())
     
 
-    print(busy_range)
     st = 0
     ed = 1
 
