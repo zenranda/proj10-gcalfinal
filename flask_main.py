@@ -217,20 +217,16 @@ def setrange():
 def getbusy():
     global formdateend, formdatestart
     
-    starthour = request.form["startTime"]         #get auth credentials, form data
-    endhour = request.form["endTime"]
+    starttime = request.form["startTime"]         #get auth credentials, form data
+    endtime = request.form["endTime"]
     sel = request.form.getlist("calendarselect")
     cred = valid_credentials()
     gcal = get_gcal_service(cred)
     
-    starttime = arrow.get(formdatestart).replace(hour=int(starthour))   #sets up the hour range
-    endtime = arrow.get(formdateend).replace(hour=int(endhour))
+    starttime = arrow.get(formdatestart).replace(hour=int(starttime))   #sets up the hour range
+    endtime = arrow.get(formdateend).replace(hour=int(endtime))
     
     grabbeddates = list_busy_times(gcal, endtime.isoformat(), starttime.isoformat(), sel) #gets calendar busy times
-    
-    print("grabbed dates are" )
-    print(grabbeddates)
-    
     
     cleantime = []
     place = 1
@@ -242,62 +238,42 @@ def getbusy():
         i+= 2
     
     
-    freetime = []
+    
     daydex = []
-    i = 0
-    mainday = starttime.day                             #function to grab the free times between the start and end times
-    inday = []
-    for item in sorted(grabbeddates, key = str.lower):  #current status: non-functional
-        if arrow.get(item).day == mainday:
-            if endtime.hour >= arrow.get(item).hour >= starttime.hour: #add logic; if hour is the same but minutes are more than, truncate downward and just make its minutes equal to the opening time's minutes. if the minutes underflow, just keep em. do the same for starting minutes too; a 12:30 starting time currently includes events that crossover into 12:00
-                if endtime.hour == arrow.get(item).hour:
-                    if endtime.minute <= arrow.get(item).minute:
-                        item = arrow.get(item).replace(minute=endtime.minute).isoformat()
-                if starttime.hour == arrow.get(item).hour:
-                    if starttime.minute >= arrow.get(item).minute:
-                        item = arrow.get(item).replace(minte=starttime.minute).isoformat()
-                
-                inday.append(item)
-        else:
-            mainday = arrow.get(item).day
-            daydex.append(inday)
-            inday = []
-            if endtime.hour >= arrow.get(item).hour >= starttime.hour:
-                if endtime.hour == arrow.get(item).hour:
-                    if endtime.minute <= arrow.get(item).minute:
-                        item = arrow.get(item).replace(minute=endtime.minute).isoformat()
-                if starttime.hour == arrow.get(item).hour:
-                    if starttime.minute >= arrow.get(item).minute:
-                        item = arrow.get(item).replace(minte=starttime.minute).isoformat()
-                inday.append(item)
+    currday = starttime.day
+    dayplace = []
+    times = sorted(grabbeddates, key=str.lower)     #list of start...end times. len divisible by 2 always
+    for item in times:
+        
+        if arrow.get(item).day == currday:
+            dayplace.append(item)
 
-    daydex.append(inday)
+        else:                        #if the current day's done
+            if len(dayplace) != 0:
+                daydex.append(dayplace)       #add the day's blocking times into the list, make a new one
+            dayplace = []
+            while currday < arrow.get(item).day:
+                currday += 1
+            dayplace.append(item)
+ 
+    remainder = times[-1]
+    daydex[-1].append(remainder)
+
+    
+    freelist = []
+
     for item in daydex:
-        print("INDAY'S ITEM")
-        print(item)
-    print(daydex)
-
-    for item in daydex:                                             #overall,good. one issue: the last time range is kept even if it goes over. EX: if we look at times from 12 to 22 and the last event of the day is from 21 to 23, it thinks from 21 to 22 is a valid time, when it's not. this can be fixed by a simple check at the appending stage. can it?
-        started = starttime.replace(day=(arrow.get(item[0]).day))
-        ended = endtime.replace(day=(arrow.get(item[0]).day))
-        i = 0
-        x = 1
-        while i < len(item):
-            print("check")
-            cleaned = "From " + str(started) + " to " + str(arrow.get(item[i]))
-            freetime.append(cleaned)
-            i += 2
-            if i < len(item):
-                started = arrow.get(item[x]);
-                x +=2
-        cleaned= "From " + str(arrow.get(item[-1])) + " to " + str(ended)
-        freetime.append(cleaned)
-
-
+        started = starttime.replace(day=arrow.get(item[0]).day)
+        ended = endtime.replace(day=arrow.get(item[0]).day)
+        item.insert(0, started.isoformat())
+        item.append(ended.isoformat())
 
 
     
-    flask.g.busy = sorted(freetime, key=str.lower)  #defines flask.g.busy, sorts it. jinja2 formats this
+    
+    
+    
+    flask.g.busy = sorted(cleantime, key=str.lower)  #defines flask.g.busy, sorts it. jinja2 formats this
     return render_template("index.html")
 
 ####
@@ -419,10 +395,7 @@ def list_busy_times(service, max, min, selected):
     busyrange = service.freebusy()    
           
     querymain =  {"timeMax" : max, "items" : [], "timeMin" : min } #query on no calendars, to be filled later
-    grbody = []                                                    #oh shoot I know what the problem is; max and min are datetime ranges, not merely time ranges! So we're capturing everything from the day 1 to day n, not just the hour range between day 1 and n for each day. god i'm gonna have to rewrite this function aren't i. wait wait wait, this is actually what we want, because we query each calendar in the range. we want to look through the each calendar in the same range. the issue is the TIME.
-    
-        #new soln: shave off the hours from the list manually up above when getting each day's blocking events.
-        
+    grbody = []                                                 
     
     callist = list_calendars(service)
     for item in callist:
@@ -436,14 +409,35 @@ def list_busy_times(service, max, min, selected):
     busy_range = []
     for item in selected:                                        #once we get the busy times, we separate start and end, then send them
         parse = busy_times["calendars"][item]["busy"]            # back to getbusy() to be formatted and sent to the html
+        
         for item in parse:
-            busy_range.append(arrow.get(item["start"]).to('local').isoformat())  #sets the timezone
-            busy_range.append(arrow.get(item["end"]).to('local').isoformat())
+            print(arrow.get(item["end"]).to('local').hour)
+            if arrow.get(item["end"]).to('local').hour <= arrow.get(min).to('local').hour:
+                pass
+            else:
+                busy_range.append(arrow.get(item["start"]).to('local').isoformat())  #sets the timezone
+                busy_range.append(arrow.get(item["end"]).to('local').isoformat())
+    
+
+    print(busy_range)
+    st = 0
+    ed = 1
+
+    while ed < len(busy_range):
+        if arrow.get(busy_range[st]).hour < arrow.get(busy_range[0]).hour:
+            busy_range[st] = arrow.get(busy_range[st]).replace(hour=arrow.get(busy_range[0]).hour).to('local').isoformat()
+
+        if arrow.get(busy_range[ed]).hour > arrow.get(max).hour:
+            busy_range[ed] = arrow.get(busy_range[ed]).replace(hour=arrow.get(max).hour).to('local').isoformat()
 
 
+            if arrow.get(busy_range[ed]).minute > arrow.get(max).minute:
+                busy_range[ed] = arrow.get(busy_range[ed]).replace(minute=arrow.get(max).minute).to('local').isoformat()
 
+        st += 2
+        ed += 2
 
-        return (busy_range)
+    return (busy_range)
 
           
 
