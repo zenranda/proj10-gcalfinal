@@ -3,6 +3,7 @@ from flask import render_template
 from flask import request
 from flask import url_for
 import uuid
+from operator import itemgetter
 
 import json
 import logging
@@ -228,60 +229,84 @@ def getbusy():
     
     grabbeddates = list_busy_times(gcal, endtime.isoformat(), starttime.isoformat(), sel) #gets calendar busy times
     
-    cleantime = []
-    place = 1
-    i = 0
-    while i < len(grabbeddates):                                                         #the list is on the messy side
-        cleaned = "From " + str(arrow.get(grabbeddates[i]).year) + "/" + str(arrow.get(grabbeddates[i]).month)  + "/" + str(arrow.get(grabbeddates[i]).day) +  " at " + str(arrow.get(grabbeddates[i]).hour) + ":" + str(arrow.get(grabbeddates[i]).minute) + " to " + str(arrow.get(grabbeddates[place]).year) + "/" + str(arrow.get(grabbeddates[place]).month)  + "/" + str(arrow.get(grabbeddates[place]).day) + " at " + str(arrow.get(grabbeddates[place]).hour) + ":" + str(arrow.get(grabbeddates[place]).minute)  #so we combine it into a more reader-friendly list. theoretically.
-        cleantime.append(cleaned)                                           #also helps jinja2 formatting
-        place +=2                                                           #indexing so we combine item 0/1, 2/3, 4/5, 6/7....
-        i+= 2
-    
-    
-    
-    daydex = []
-    currday = starttime.day
-    dayplace = []
-    times = sorted(grabbeddates, key=str.lower)     #list of start...end times. len divisible by 2 always
-    for item in times:
-        
-        if arrow.get(item).day == currday:
-            dayplace.append(item)
+    daylist = []
+    dayof = []
+    currday = arrow.get(starttime).to('local')
+    print("The last day we're checking is ")
+    print(grabbeddates[-1][-1])
+    while currday <= endtime.to('local'):
+        for item in grabbeddates:
+            if arrow.get(item[0]).day == currday.day:
+                dayof.append(item)
+            if item == grabbeddates[-1]:
+                daylist.append(sorted(dayof, key=itemgetter(0)))
+                dayof = []
+                currday = currday.replace(days=+1)
+                print(currday)
 
-        else:                        #if the current day's done
-            if len(dayplace) != 0:
-                daydex.append(dayplace)       #add the day's blocking times into the list, make a new one
-            dayplace = []
-            while currday < arrow.get(item).day:
-                currday += 1
-            dayplace.append(item)
- 
-    remainder = times[-1]
-    daydex[-1].append(remainder)
 
-    
-    freelist = []
+    for item in daylist:
+        x = 0
+        i = 1
+        bloop = 0
+        dellist = []
+        while i <= len(item)/2:
+            if arrow.get(item[x][1]) > arrow.get(item[i][0]):   #if the end time of one is after the start time of the other
+                if arrow.get(item[i][1]) < arrow.get(item[x][1]):   #if the end time of one is before the end time of the other         (ie: full overlap):
+                    dellist.append(i)
+                if arrow.get(item[i][1]) > arrow.get(item[x][1]):    #if the end time of the other is after the end time of the first
+                    item[x][1] = item[i][1]                        #set the end time of the first to the end time of the second (in essence, merge the two)
+                    dellist.append(i)
 
-    for item in daydex:                     #weird logic, but it works. one issue: we can get start/end ranges that start and end at the same time. todo: generate the free ranges, then delete them if there's no differernce between them. Even better, if I want to be slick I can implement the date clipping that's in extra credit as part of this function, with a base date of 0!
-        
-        #anyway, list all the ranges between these things. done.
-        print("looking through days...")
-        started = starttime.replace(day=arrow.get(item[0]).day)
-        ended = endtime.replace(day=arrow.get(item[0]).day)
-        item.insert(0, started.isoformat())
-        item.append(ended.isoformat())
-        chompeddates = set(item)
+            x += 2
+            i += 2
 
+
+        for element in dellist:
+            del item[element]
+
+
+
+
+
+
+    startdelta = starttime
+    enddelta = startdelta.replace(hour=arrow.get(endtime).hour, minute = arrow.get(endtime).minute)
+    for item in daylist:
+        deldex = []
+        for elem in item:
+            if arrow.get(elem[0]) < startdelta.to('local'): #if the start time is before our start time, make its start time equal to it
+                elem[0] = startdelta.isoformat()
+            if arrow.get(elem[1]) > enddelta.to('local'):   #if the end time is after our end time, make its end time equal to it
+                elem[1] = enddelta.isoformat()
+            if arrow.get(elem[0]) > arrow.get(elem[1]):          #if the event starts after it ends, then just remove it
+                    deldex.append(elem)
+                        
+
+        startdelta = startdelta.replace(days=+1)
+        enddelta = enddelta.replace(days=+1)
+        for obj in deldex:
+            item.remove(obj)
+
+
+    for item in daylist:
+        print("New day:")
         print(item)
 
 
+    for item in daylist:
+        for elem in item:
+            free.append("From " + str(start)
 
-    
-    
-    
-    
-    flask.g.busy = sorted(cleantime, key=str.lower)  #defines flask.g.busy, sorts it. jinja2 formats this
+
+
+    flask.g.busy = sorted(list(busy), key=str.lower)  #defines flask.g.busy, sorts it. jinja2 formats this
+    flask.g.free = sorted(list(justfree), key=str.lower)  #defines flask.g.busy, sorts it. jinja2 formats this
     return render_template("index.html")
+
+
+
+
 
 ####
 #
@@ -418,34 +443,15 @@ def list_busy_times(service, max, min, selected):
         parse = busy_times["calendars"][item]["busy"]            # back to getbusy() to be formatted and sent to the html
         
         for item in parse:
-            print(arrow.get(item["end"]).to('local').hour)
-            if arrow.get(item["end"]).to('local').hour <= arrow.get(min).to('local').hour:
-                pass
-            else:
-                busy_range.append(arrow.get(item["start"]).to('local').isoformat())  #sets the timezone
-                busy_range.append(arrow.get(item["end"]).to('local').isoformat())
-    
+            daylist = []
+            daylist.append(arrow.get(item["start"]).to('local').isoformat())  #sets the timezone
+            daylist.append(arrow.get(item["end"]).to('local').isoformat())
+            busy_range.append(daylist)
 
-    st = 0
-    ed = 1
-
-    while ed < len(busy_range):
-        if arrow.get(busy_range[st]).hour < arrow.get(busy_range[0]).hour:
-            busy_range[st] = arrow.get(busy_range[st]).replace(hour=arrow.get(busy_range[0]).hour).to('local').isoformat()
-
-        if arrow.get(busy_range[ed]).hour > arrow.get(max).hour:
-            busy_range[ed] = arrow.get(busy_range[ed]).replace(hour=arrow.get(max).hour).to('local').isoformat()
-
-
-            if arrow.get(busy_range[ed]).minute > arrow.get(max).minute:
-                busy_range[ed] = arrow.get(busy_range[ed]).replace(minute=arrow.get(max).minute).to('local').isoformat()
-
-        st += 2
-        ed += 2
 
     return (busy_range)
 
-          
+
 
 
 def cal_sort_key( cal ):
