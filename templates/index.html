@@ -88,7 +88,7 @@
   <h3> (Using which calendars?) </h3>
   {% for cal in g.calendars if cal.selected %}
           <div class="col-md-4">
-              <input type="checkbox" checked name="calendarselect", value = {{cal.id }}> {{ cal.summary }}<br>
+              <input type="checkbox" name="calendarselect", value = {{cal.id }}> {{ cal.summary }}<br>
           </div>
          {% if loop.index is divisibleby 3 %}
           </div> <div class="row">
