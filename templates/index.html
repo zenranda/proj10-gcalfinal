@@ -35,7 +35,7 @@
 <body>
 <div class="container">
 
-<h1>Busy times</h1>
+<h1>Free/Busy times</h1>
 
 {% with messages = get_flashed_messages() %}
   {% if messages %}
@@ -88,7 +88,7 @@
   <h3> (Using which calendars?) </h3>
   {% for cal in g.calendars if cal.selected %}
           <div class="col-md-4">
-              <input type="checkbox" name="calendarselect", value = {{cal.id }}> {{ cal.summary }}<br>
+              <input type="checkbox" checked name="calendarselect", value = {{cal.id }}> {{ cal.summary }}<br>
           </div>
          {% if loop.index is divisibleby 3 %}
           </div> <div class="row">
@@ -103,8 +103,17 @@
 
 
 {% if g.busy is defined %}
-    <h2>Free ranges</h2>
+    <h2>Busy ranges</h2>
     {% for itm in g.busy %}
+        {{itm}} <br>
+    {% endfor %}
+{% endif %}
+
+
+
+{% if g.free is defined %}
+    <h2>Free ranges</h2>
+    {% for itm in g.free %}
         {{itm}} <br>
     {% endfor %}
 {% endif %}
