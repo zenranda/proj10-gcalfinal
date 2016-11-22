@@ -248,8 +248,8 @@ def getbusy():
     for item in daylist:
         x = 0
         i = 1
-        bloop = 0
         dellist = []
+        checked = 0
         while i <= len(item)/2:
             if arrow.get(item[x][1]) > arrow.get(item[i][0]):   #if the end time of one is after the start time of the other
                 if arrow.get(item[i][1]) < arrow.get(item[x][1]):   #if the end time of one is before the end time of the other         (ie: full overlap):
@@ -262,12 +262,8 @@ def getbusy():
             i += 2
 
 
-        for element in dellist:
+            for element in dellist:
             del item[element]
-
-
-
-
 
 
     startdelta = starttime
@@ -294,14 +290,32 @@ def getbusy():
         print(item)
 
 
+    free = []
+    busy = []
+    i = 0
+    start = starttime
+    end = start.replace(hour=endtime.hour, minute=endtime.minute)
     for item in daylist:
         for elem in item:
-            free.append("From " + str(start)
+            busy.append("From " + str(elem[0]) + " to " + str(elem[1]))
+            if elem == item[0]:
+                if str(start) != str(elem[0]):
+                    free.append("From " + str(start) + " to " + str(elem[0]))
+            else:
+                free.append("From " + str(last) + " to " + str(elem[0]))
+                i += 1
+            if elem == item[-1]:
+                if str(elem[1]) != str(end):
+                    free.append("From " + str(elem[1]) + " to " + str(end))
+            
+            last = elem[1]
+        start = start.replace(days=+1)
+        end = end.replace(days=+1)
+            
+        
 
-
-
-    flask.g.busy = sorted(list(busy), key=str.lower)  #defines flask.g.busy, sorts it. jinja2 formats this
-    flask.g.free = sorted(list(justfree), key=str.lower)  #defines flask.g.busy, sorts it. jinja2 formats this
+    flask.g.busy = sorted(busy, key=str.lower)  #defines flask.g.busy, sorts it. jinja2 formats this
+    flask.g.free = sorted(free, key=str.lower)  #defines flask.g.busy, sorts it. jinja2 formats this
     return render_template("index.html")
 
 
