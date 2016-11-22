@@ -4,6 +4,7 @@ from flask import request
 from flask import url_for
 import uuid
 from operator import itemgetter
+import get_freebusy
 
 import json
 import logging
@@ -228,94 +229,15 @@ def getbusy():
     endtime = arrow.get(formdateend).replace(hour=int(endtime))
     
     grabbeddates = list_busy_times(gcal, endtime.isoformat(), starttime.isoformat(), sel) #gets calendar busy times
+    print(grabbeddates)
+    print(starttime)
+    print(endtime)
     
-    daylist = []
-    dayof = []
-    currday = arrow.get(starttime).to('local')
-    print("The last day we're checking is ")
-    print(grabbeddates[-1][-1])
-    while currday <= endtime.to('local'):
-        for item in grabbeddates:
-            if arrow.get(item[0]).day == currday.day:
-                dayof.append(item)
-            if item == grabbeddates[-1]:
-                daylist.append(sorted(dayof, key=itemgetter(0)))
-                dayof = []
-                currday = currday.replace(days=+1)
-                print(currday)
+    result = get_freebusy.get_freebusy(grabbeddates, starttime, endtime)
+    print(result)
 
-
-    for item in daylist:
-        x = 0
-        i = 1
-        dellist = []
-        checked = 0
-        while i <= len(item)/2:
-            if arrow.get(item[x][1]) > arrow.get(item[i][0]):   #if the end time of one is after the start time of the other
-                if arrow.get(item[i][1]) < arrow.get(item[x][1]):   #if the end time of one is before the end time of the other         (ie: full overlap):
-                    dellist.append(i)
-                if arrow.get(item[i][1]) > arrow.get(item[x][1]):    #if the end time of the other is after the end time of the first
-                    item[x][1] = item[i][1]                        #set the end time of the first to the end time of the second (in essence, merge the two)
-                    dellist.append(i)
-
-            x += 2
-            i += 2
-
-
-            for element in dellist:
-            del item[element]
-
-
-    startdelta = starttime
-    enddelta = startdelta.replace(hour=arrow.get(endtime).hour, minute = arrow.get(endtime).minute)
-    for item in daylist:
-        deldex = []
-        for elem in item:
-            if arrow.get(elem[0]) < startdelta.to('local'): #if the start time is before our start time, make its start time equal to it
-                elem[0] = startdelta.isoformat()
-            if arrow.get(elem[1]) > enddelta.to('local'):   #if the end time is after our end time, make its end time equal to it
-                elem[1] = enddelta.isoformat()
-            if arrow.get(elem[0]) > arrow.get(elem[1]):          #if the event starts after it ends, then just remove it
-                    deldex.append(elem)
-                        
-
-        startdelta = startdelta.replace(days=+1)
-        enddelta = enddelta.replace(days=+1)
-        for obj in deldex:
-            item.remove(obj)
-
-
-    for item in daylist:
-        print("New day:")
-        print(item)
-
-
-    free = []
-    busy = []
-    i = 0
-    start = starttime
-    end = start.replace(hour=endtime.hour, minute=endtime.minute)
-    for item in daylist:
-        for elem in item:
-            busy.append("From " + str(elem[0]) + " to " + str(elem[1]))
-            if elem == item[0]:
-                if str(start) != str(elem[0]):
-                    free.append("From " + str(start) + " to " + str(elem[0]))
-            else:
-                free.append("From " + str(last) + " to " + str(elem[0]))
-                i += 1
-            if elem == item[-1]:
-                if str(elem[1]) != str(end):
-                    free.append("From " + str(elem[1]) + " to " + str(end))
-            
-            last = elem[1]
-        start = start.replace(days=+1)
-        end = end.replace(days=+1)
-            
-        
-
-    flask.g.busy = sorted(busy, key=str.lower)  #defines flask.g.busy, sorts it. jinja2 formats this
-    flask.g.free = sorted(free, key=str.lower)  #defines flask.g.busy, sorts it. jinja2 formats this
+    flask.g.busy = sorted(result[1], key=str.lower)  #defines flask.g.busy, sorts it. jinja2 formats this
+    flask.g.free = sorted(result[0], key=str.lower)  #defines flask.g.free, sorts it. jinja2 formats this
     return render_template("index.html")
 
 
