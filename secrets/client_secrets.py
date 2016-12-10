@@ -1,2 +1,5 @@
 author = "Marc Leppold"                              
-repo = "https://github.com/zenranda/proj7-gcal.git" 
+repo = "https://github.com/zenranda/proj10-final.git" 
+db = "mydb"
+db_user = "memo_usr"
+db_user_pw = "memosaregreat"

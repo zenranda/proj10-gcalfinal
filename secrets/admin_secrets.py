@@ -1,1 +1,5 @@
 google_key_file = "secrets/google_client_key.json"
+admin_user="mleppold"
+admin_pw="passy71H"
+port="27333"
+host="localhost"
