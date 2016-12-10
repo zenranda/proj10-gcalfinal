@@ -1,5 +1,5 @@
 #
-#  Project 7: Pull Google calendar events 
+#  Project 10: Pull Google calendar events 
 
 
 # ###########################################
